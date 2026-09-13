@@ -41,3 +41,8 @@ Thumbs.db
 
 # ---- Docker volumes (local data) ----
 pgdata/
+
+# ---- Private study material (kept locally, NOT published to GitHub) ----
+docs/PLAN.md
+docs/TALKING_POINTS.md
+docs/BUILD_LOG_DAY*.md
