@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class HealthController {
 
-    // GET http://localhost:8080/health  ->  plain text "PolicyGuard is running"
+    // GET http://localhost:8081/health  ->  plain text "PolicyGuard is running"
     @GetMapping("/health")
     public String health() {
         return "PolicyGuard is running";

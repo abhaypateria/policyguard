@@ -16,7 +16,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class PolicyGuardApplication {
 
     public static void main(String[] args) {
-        // Boots Spring, starts the embedded Tomcat web server on port 8080.
+        // Boots Spring, starts the embedded Tomcat web server on port 8081.
         SpringApplication.run(PolicyGuardApplication.class, args);
     }
 }

@@ -118,7 +118,7 @@ docker compose ps
 Then check it's alive:
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 # -> PolicyGuard is running
 ```
 
