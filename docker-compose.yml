@@ -1,0 +1,31 @@
+# Runs PostgreSQL (with the pgvector extension available) in a container.
+# Start it with:  docker compose up -d
+# Stop it with:   docker compose down   (add -v to also delete the data volume)
+
+services:
+  postgres:
+    # pgvector image = PostgreSQL 16 + the pgvector extension preinstalled.
+    # We use it from Day 1 so we don't have to swap databases when we add
+    # vector search in Section 3.
+    image: pgvector/pgvector:pg16
+    container_name: policyguard-postgres
+    environment:
+      POSTGRES_DB: policyguard
+      POSTGRES_USER: policyguard
+      POSTGRES_PASSWORD: policyguard
+    ports:
+      # "host:container" -> our machine's 5433 forwards to Postgres's 5432 inside
+      # the container. Host 5433 avoids clashing with any local Postgres on 5432.
+      - "5433:5432"
+    volumes:
+      # Named volume so the data survives 'docker compose down' and restarts.
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Docker keeps checking until Postgres is actually ready to accept connections.
+      test: ["CMD-SHELL", "pg_isready -U policyguard -d policyguard"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
