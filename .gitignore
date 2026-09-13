@@ -1,0 +1,43 @@
+# ---- Java / Maven / Gradle ----
+target/
+build/
+!**/src/main/**/target/
+!**/src/test/**/target/
+.gradle/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# ---- Spring Boot ----
+*.log
+logs/
+
+# ---- Secrets / config (NEVER commit API keys) ----
+.env
+*.env
+application-local.properties
+application-secret*.properties
+src/main/resources/application-local.*
+
+# ---- Node / React ----
+node_modules/
+frontend/dist/
+frontend/build/
+npm-debug.log*
+yarn-error.log*
+
+# ---- IDE ----
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Docker volumes (local data) ----
+pgdata/
