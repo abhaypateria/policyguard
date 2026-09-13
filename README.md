@@ -144,33 +144,8 @@ policyguard/
 
 ---
 
-## Roadmap
+## Status
 
-Built section by section over a focused 7-day plan (see [docs/PLAN.md](docs/PLAN.md)):
-
-- [x] **§1 Foundation** — Spring Boot skeleton, Docker Postgres+pgvector, `/health`
-- [ ] **§2 Document upload & parsing** — upload endpoint, text extraction, metadata
-- [ ] **§3 Chunking + embedding + vector store**
-- [ ] **§4 Retrieval** — similarity search, top-K, threshold
-- [ ] **§5 RAG answering + citations**
-- [ ] **§6 Self-correction loop** *(differentiator)*
-- [ ] **§7 Audit log + versioning** *(differentiator)*
-- [ ] **§8 Evaluation harness** *(differentiator)*
-- [ ] **§9 React frontend**
-- [ ] **§10 Deploy + docs**
-
----
-
-## Documentation
-
-- 📅 [7-day build plan](docs/PLAN.md)
-- 🧠 [System design, explained simply](docs/SYSTEM_DESIGN.md)
-- 🎤 [Interview talking points](docs/TALKING_POINTS.md)
-- 📊 [Evaluation results](docs/EVALUATION.md)
-- 📝 [Daily build logs](docs/)
-
----
-
-*This is a learning project built to be understood and defended end-to-end, not a
-black box. Each design decision — and each deliberate difference from the tutorial it
-follows — is documented in the daily build logs.*
+🚧 In active development. The foundation is in place — containerized PostgreSQL +
+pgvector, a Spring Boot service, and a health endpoint. Document ingestion, vector
+retrieval, and grounded answering with citations are being built next.
