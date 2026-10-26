@@ -69,16 +69,15 @@ local embeddings → pgvector (HNSW) + full-text (GIN) indexes. Runs asynchronou
 Prerequisites: Java 21, Node 18+, a free [Neon](https://neon.tech) Postgres database, and at least one LLM
 (free Groq / Gemini key, or [Ollama](https://ollama.com) running locally).
 
-```bash
-cp .env.example .env          # then fill in DATABASE_URL and an LLM key
-./mvnw spring-boot:run        # Windows: .\mvnw.cmd spring-boot:run   -> http://localhost:8081
-cd frontend && npm install && npm run dev                            # -> http://localhost:5173
+```powershell
+copy .env.example .env        # then fill in DATABASE_URL and GROQ_API_KEY
+.\start-demo.ps1              # builds the UI into the backend -> http://localhost:8081
 ```
 
 Flyway creates the schema and the demo corpus is indexed automatically on first start.
-API docs: `http://localhost:8081/swagger-ui.html`. Tests: `./mvnw test`.
-
-Deployment (Hugging Face Spaces + Vercel, all free tiers): see [docs/DEPLOY.md](docs/DEPLOY.md).
+API docs: `http://localhost:8081/swagger-ui.html`. Tests: `.\mvnw.cmd test`.
+`.\share-link.ps1` opens a temporary public link (Cloudflare tunnel). Details and hosting notes:
+[docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## API
 

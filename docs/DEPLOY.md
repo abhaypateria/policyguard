@@ -1,95 +1,52 @@
-# Setup & Deployment Guide
+# Running PolicyGuard
 
-Everything here is **free** and needs **no credit card**.
-
-| Piece | Service | Why this one |
+| Piece | Service | Notes |
 |---|---|---|
-| Database (Postgres + pgvector) | **Neon** | Free serverless Postgres with pgvector built in; same database for dev and prod |
-| LLM (primary) | **Groq** | Free API key, very fast Llama models |
-| LLM (fallback) | **Google Gemini** | Free API key; used automatically if Groq is rate-limited |
-| LLM (offline fallback) | **Ollama** (local) | Runs on your own laptop/GPU; no internet, no quota |
-| Backend hosting | **Hugging Face Spaces** (Docker) | Free tier gives 16 GB RAM - enough for the in-JVM embedding model |
-| Frontend hosting | **Vercel** | Free static hosting for the React app |
+| Database (Postgres + pgvector) | **Neon** (free) | Serverless Postgres; the same database for every run |
+| LLM | **Groq** (free) | `openai/gpt-oss-120b`, with `gpt-oss-20b` as a fast second model |
+| LLM fallbacks | Gemini (optional key), **Ollama** (local, offline) | Tried automatically if Groq is unavailable |
+| Embeddings | all-MiniLM-L6-v2, **inside the app** | No key, no quota |
 
----
+## 1. One-time setup
 
-## Step 1 - Accounts and keys (about 15 minutes)
+1. **Neon** - https://neon.tech -> create a project (region Singapore) -> **Connect** -> turn **off** "Connection pooling" -> copy the `postgresql://...` string.
+2. **Groq** - https://console.groq.com/keys -> **Create API Key**.
+3. Copy `.env.example` to `.env` and fill in `DATABASE_URL` and `GROQ_API_KEY`. (`.env` is gitignored.)
+4. Prerequisites: Java 21 and Node 18+.
 
-> You do these steps yourself in your own browser. Never paste keys into chat; they go only into
-> your local `.env` file and the hosting providers' secret settings.
-
-### 1a. Neon (database)
-1. Go to https://neon.tech -> **Sign up with GitHub**.
-2. Create a project: name `policyguard`, Postgres version 16 or 17, region **AWS Asia Pacific (Singapore)** (closest to India).
-3. On the project dashboard click **Connect**. Turn **OFF "Connection pooling"**, then copy the connection string
-   (`postgresql://...neon.tech/neondb?sslmode=require`).
-
-### 1b. Groq (fast free LLM)
-1. Go to https://console.groq.com -> sign in -> **API Keys** -> **Create API Key** -> copy it.
-
-### 1c. Google Gemini (fallback LLM)
-1. Go to https://aistudio.google.com -> **Get API key** -> **Create API key** -> copy it.
-
-### 1d. Put them in `.env`
-In the project folder `C:\Users\abhay\policyguard`, copy `.env.example` to a new file named `.env` and paste:
-```
-DATABASE_URL=<the Neon string>
-GROQ_API_KEY=<your Groq key>
-GEMINI_API_KEY=<your Gemini key>
-```
-
-### 1e. (For deployment) Hugging Face and Vercel
-1. https://huggingface.co -> **Sign up**. Then **Settings -> Access Tokens -> Create new token** (type **Write**). Keep it handy.
-2. https://vercel.com -> **Sign up with GitHub**.
-
----
-
-## Step 2 - Run locally
+## 2. Start it
 
 ```powershell
-cd C:\Users\abhay\policyguard
-.\mvnw.cmd spring-boot:run
+.\start-demo.ps1
 ```
-On first start Flyway creates the tables, the bundled corpus is indexed in the background
-(about 1-2 minutes), and the API is at http://localhost:8081 (Swagger UI at `/swagger-ui.html`).
 
-Frontend (separate terminal):
+This builds the React UI into the backend and starts one process. Open **http://localhost:8081**.
+On the very first start, Flyway creates the schema and the bundled corpus is indexed (about 1 minute).
+
+Useful flags: `-SkipUiBuild` (faster restart), `-WithOllama` (also start the local offline model).
+
+Developer mode (hot-reloading UI): run `.\mvnw.cmd spring-boot:run`, then `cd frontend; npm run dev` and open http://localhost:5173.
+
+## 3. Share a temporary public link (optional)
+
 ```powershell
-cd C:\Users\abhay\policyguard\frontend
-npm install
-npm run dev
+.\share-link.ps1
 ```
-Open http://localhost:5173.
 
----
+Creates a free Cloudflare quick tunnel (no account) and prints an `https://….trycloudflare.com` address that
+reaches the app on this laptop for as long as the window stays open. It refuses to run unless `ADMIN_KEY` is set
+in `.env`, so uploads, deletes and evaluation runs stay protected while the link is public.
 
-## Step 3 - Deploy
+## 4. Before a live demo
 
-### Backend (+ bundled UI) -> Hugging Face Space
-1. Log in once from your own terminal (paste your **Write** token when asked):
-   ```powershell
-   pip install huggingface_hub
-   hf auth login
-   ```
-2. Upload the code (creates the Space if needed):
-   ```powershell
-   python deploy\deploy_hf.py --space <your-hf-username>/policyguard
-   ```
-3. In the Space page: **Settings -> Variables and secrets**
-   - **Secrets**: `DATABASE_URL`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `ADMIN_KEY`
-   - **Variables**: `EVAL_ENABLED=false`, `CORS_ORIGINS=*` (tighten to your Vercel URL later)
-4. The Space builds the Docker image in the cloud (about 5-8 minutes). The whole app - UI and API - is then live at
-   `https://<user>-policyguard.hf.space`. The Space uses the same Neon database, so the corpus, audit log and
-   evaluation results you created locally are already there.
+- Disconnect any **VPN**: it can stall the database connection (the TCP connection opens but the TLS handshake never completes).
+- Test once on the **venue's Wi-Fi** - some networks block the Postgres port. Keep a **phone hotspot** as backup.
+- Open the app 2 minutes early: Neon suspends idle databases and the first query wakes it.
+- Ask the demo questions once beforehand; repeated questions are served from the 30-minute cache.
 
-### Frontend -> Vercel
-```powershell
-cd C:\Users\abhay\policyguard\frontend
-npx vercel login
-npx vercel --prod --build-env VITE_API_BASE=https://<user>-policyguard.hf.space
-```
-Then set `CORS_ORIGINS=https://<your-app>.vercel.app` in the Space variables.
+## 5. Hosting it permanently
 
-### Before the review
-Free Spaces sleep after ~48 h without traffic. Open the Space URL ~5 minutes before presenting so it is awake,
-and keep the local version (`mvnw spring-boot:run` + Ollama) ready as an offline backup.
+`Dockerfile` builds a single container (UI + API). It needs **at least 1 GB of RAM**: the in-JVM embedding
+model needs about 300 MB of heap, and a 512 MB free tier was measured to run out of memory. Suitable hosts:
+Azure for Students (free credit), Google Cloud Run, or any VM. Set `DATABASE_URL`, `GROQ_API_KEY`, `ADMIN_KEY` and
+`CORS_ORIGINS` as environment variables.

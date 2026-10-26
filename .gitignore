@@ -49,3 +49,6 @@ docs/BUILD_LOG_DAY*.md
 
 # ---- Private review preparation (kept locally) ----
 docs/REVIEW_PREP.md
+
+# ---- UI build bundled into the backend by start-demo.ps1 ----
+src/main/resources/static/
