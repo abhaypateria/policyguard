@@ -4,9 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Inherit sensible defaults + dependency versions from Spring Boot.
-         Pinned to 3.4.x so it matches the reference video and stays compatible
-         with Spring AI 1.0 (added in Section 3). -->
+    <!-- Spring Boot 3.4.x: matches the reference video and is compatible with Spring AI 1.0.x -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -16,41 +14,97 @@
 
     <groupId>com.policyguard</groupId>
     <artifactId>policyguard</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>policyguard</name>
-    <description>AI compliance assistant (RAG) for banking policy documents</description>
+    <description>Temporally-grounded, self-correcting RAG assistant for banking compliance</description>
 
     <properties>
         <java.version>21</java.version>
+        <spring-ai.version>1.0.9</spring-ai.version>
+        <springdoc.version>2.8.17</springdoc.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring AI BOM keeps every Spring AI module on the same version -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
-        <!-- Spring Web: REST controllers + embedded Tomcat server -->
+        <!-- Web layer: REST controllers + embedded Tomcat -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-
-        <!-- Spring Data JPA: talk to the database using Java objects -->
+        <!-- JPA for our relational tables (documents, audit log, eval runs) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-
-        <!-- Bean Validation: @NotNull / @Size etc. on incoming data (used later) -->
+        <!-- Request validation (@NotBlank, @Size) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-
-        <!-- PostgreSQL JDBC driver: only needed at runtime to connect to Postgres -->
+        <!-- /actuator/health, /actuator/metrics -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- PostgreSQL driver -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Flyway: versioned, repeatable schema migrations (instead of ddl-auto) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
 
-        <!-- Testing support (JUnit etc.) -->
+        <!-- ===== Spring AI ===== -->
+        <!-- pgvector VectorStore (same as the reference project) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
+        </dependency>
+        <!-- Local ONNX embedding model (all-MiniLM-L6-v2) running inside the JVM:
+             no API key, no quota, document text never leaves the server for embedding -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-transformers</artifactId>
+        </dependency>
+        <!-- OpenAI-compatible chat client library (no auto-config): we build one client per
+             provider ourselves (Groq, Gemini, local Ollama) to get a failover chain -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+        </dependency>
+        <!-- Page-aware PDF reader: gives us page numbers for citations -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pdf-document-reader</artifactId>
+        </dependency>
+
+        <!-- Swagger UI / OpenAPI docs at /swagger-ui.html -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -59,14 +113,12 @@
     </dependencies>
 
     <build>
+        <finalName>policyguard</finalName>
         <plugins>
-            <!-- Lets us run the app with: .\mvnw.cmd spring-boot:run
-                 and package it as a runnable jar -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
-
 </project>

@@ -46,3 +46,6 @@ pgdata/
 docs/PLAN.md
 docs/TALKING_POINTS.md
 docs/BUILD_LOG_DAY*.md
+
+# ---- Private review preparation (kept locally) ----
+docs/REVIEW_PREP.md

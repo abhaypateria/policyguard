@@ -1,0 +1,38 @@
+[
+  {
+    "file": "rbi-kyc-master-direction.pdf",
+    "title": "Master Direction - Know Your Customer (KYC) Direction, 2016",
+    "issuer": "Reserve Bank of India",
+    "sourceType": "REGULATOR",
+    "documentFamily": "RBI-KYC-MD",
+    "versionLabel": "Updated as on 14-Aug-2025",
+    "effectiveFrom": "2025-08-14"
+  },
+  {
+    "file": "rbi-kyc-faqs-2025.pdf",
+    "title": "FAQs on Master Direction on KYC",
+    "issuer": "Reserve Bank of India",
+    "sourceType": "REGULATOR",
+    "documentFamily": "RBI-KYC-FAQ",
+    "versionLabel": "June 9, 2025",
+    "effectiveFrom": "2025-06-09"
+  },
+  {
+    "file": "demobank-kyc-sop-2023.pdf",
+    "title": "Demo Bank Internal SOP - KYC, Account Opening and NRI Accounts (FICTIONAL)",
+    "issuer": "Demo Bank Ltd. (fictional)",
+    "sourceType": "INTERNAL",
+    "documentFamily": "DEMOBANK-KYC-SOP",
+    "versionLabel": "2023",
+    "effectiveFrom": "2023-04-01"
+  },
+  {
+    "file": "demobank-kyc-sop-2024.pdf",
+    "title": "Demo Bank Internal SOP - KYC, Account Opening and NRI Accounts (FICTIONAL)",
+    "issuer": "Demo Bank Ltd. (fictional)",
+    "sourceType": "INTERNAL",
+    "documentFamily": "DEMOBANK-KYC-SOP",
+    "versionLabel": "2024",
+    "effectiveFrom": "2024-07-01"
+  }
+]
