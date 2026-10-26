@@ -34,12 +34,18 @@ public record PolicyGuardProperties(
                       @DefaultValue("5") int connectTimeoutSeconds,
                       @DefaultValue("90") int readTimeoutSeconds) {}
 
+    /**
+     * @param reasoningEffort optional, for reasoning models such as gpt-oss ("low" keeps them fast);
+     *                        leave empty for models that do not support it.
+     */
     public record Provider(String name,
                            String baseUrl,
                            String apiKey,
                            String model,
                            @DefaultValue("/v1/chat/completions") String completionsPath,
-                           @DefaultValue("true") boolean enabled) {
+                           @DefaultValue("true") boolean enabled,
+                           String reasoningEffort,
+                           @DefaultValue("false") boolean lastResort) {
 
         /** A provider is only tried if it is enabled and actually has a key + endpoint. */
         public boolean usable() {

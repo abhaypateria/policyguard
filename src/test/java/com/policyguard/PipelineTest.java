@@ -123,6 +123,34 @@ class PipelineTest {
     }
 
     @Test
+    void citationStylesAndTypographyAreNormalised() {
+        assertEquals("Within 10 days [S1].", GroundingVerifier.normalize("Within 10 days 【S1】."));
+        assertEquals("Both rules [S1][S3].", GroundingVerifier.normalize("Both rules [S1, S3]."));
+        assertEquals("PAN or Form 60 [S2]", GroundingVerifier.normalize("PAN or Form 60 (S2)"));
+        assertEquals("Rs. 10,000 [S1].", GroundingVerifier.normalize("Rs. 10,000 [S1]. [S1]"));
+        assertEquals("against cash [S1] and more", GroundingVerifier.normalize("against cash [ S1 ] [S1] and more"));
+    }
+
+    @Test
+    void uncitedSentencesAreAttributedOnlyWhenTheSourceClearlyContainsThem() {
+        Map<String, String> sources = Map.of("S2",
+                "a valid visa, work permit or residence permit of the country of residence; proof of overseas address");
+        GroundingVerifier.Attribution a = new GroundingVerifier().attributeUncited(
+                "- Valid visa, work permit or residence permit of the country of residence\n- A free airport lounge pass", sources);
+        assertEquals(1, a.added(), "only the sentence the source supports gets a citation");
+        assertTrue(a.text().startsWith("- Valid visa, work permit or residence permit of the country of residence [S2]"));
+        assertTrue(a.text().endsWith("- A free airport lounge pass"));
+    }
+
+    @Test
+    void groqRetryAfterHintIsRespected() {
+        assertEquals(8_160, LlmGateway.retryAfterMs("Rate limit reached... Please try again in 7.66s. Need more tokens?"));
+        assertEquals(62_500, LlmGateway.retryAfterMs("Please try again in 1m2s."));
+        assertEquals(1_020, LlmGateway.retryAfterMs("Please try again in 520ms."));
+        assertEquals(30_000, LlmGateway.retryAfterMs("429 Too Many Requests"));
+    }
+
+    @Test
     void auditHashChangesWhenAnyFieldIsTampered() {
         AuditRecord r = new AuditRecord();
         r.setSeq(7L);

@@ -1,4 +1,4 @@
-import { AlertTriangle, Ban, CalendarClock, CheckCheck, Filter, Lock, RefreshCw, Scale, Search, Sparkles, Zap } from 'lucide-react';
+import { AlertTriangle, Ban, CalendarClock, CheckCheck, Filter, Link2, Lock, RefreshCw, Scale, Search, Sparkles, Zap } from 'lucide-react';
 
 const STEPS = {
   SCOPE: { icon: CalendarClock, color: 'var(--blue)', label: 'Scope by date' },
@@ -7,6 +7,7 @@ const STEPS = {
   GRADE: { icon: Scale, color: 'var(--violet)', label: 'Grade evidence' },
   REWRITE: { icon: RefreshCw, color: 'var(--amber)', label: 'Rewrite & retry' },
   GENERATE: { icon: Sparkles, color: 'var(--teal)', label: 'Generate' },
+  ATTRIBUTE: { icon: Link2, color: 'var(--teal)', label: 'Attribute citations' },
   VERIFY: { icon: CheckCheck, color: 'var(--teal)', label: 'Verify claims' },
   CONFLICT: { icon: AlertTriangle, color: 'var(--red)', label: 'Conflict' },
   REFUSE: { icon: Ban, color: 'var(--amber)', label: 'Refuse' },

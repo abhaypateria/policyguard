@@ -184,32 +184,40 @@ public class RagService {
             return refusal(question, asOf, mode, sources, trace, attempt, provider, start, refuseReason);
         }
 
-        // ---- GENERATE ----
-        LlmResult gen = llm.call(Prompts.answerSystem(asOf), Prompts.sourcesUser(question, sources, finalChunks));
+        Map<String, String> textByLabel = new HashMap<>();
+        for (int i = 0; i < sources.size(); i++) textByLabel.put(sources.get(i).label(), finalChunks.get(i).body());
+
+        // Keep a conflict if it names no labels (described in prose) or all its labels are real sources.
+        List<Conflict> conflicts = grade == null ? List.of() : grade.conflicts().stream()
+                .filter(c -> c.sources().stream().allMatch(textByLabel::containsKey))
+                .toList();
+
+        // ---- GENERATE (told about any conflicts so the answer states both sides) ----
+        LlmResult gen = llm.call(Prompts.answerSystem(asOf),
+                Prompts.sourcesUser(question, sources, finalChunks) + Prompts.conflictNote(conflicts));
         provider = gen.provider();
         trace.add(new TraceStep("GENERATE", "grounded answer written by " + gen.provider() + " from "
                 + sources.size() + " labelled sources", gen.latencyMs()));
-        String answer = gen.text().trim();
+        String answer = GroundingVerifier.normalize(gen.text().trim());
         if (answer.contains(INSUFFICIENT)) {
             trace.add(new TraceStep("REFUSE", "the model itself found the sources insufficient", 0));
             return refusal(question, asOf, mode, sources, trace, attempt, provider, start,
                     "the model found the retrieved sources insufficient");
         }
 
-        // ---- VERIFY ----
-        Map<String, String> textByLabel = new HashMap<>();
-        for (int i = 0; i < sources.size(); i++) textByLabel.put(sources.get(i).label(), finalChunks.get(i).body());
+        // ---- ATTRIBUTE + VERIFY ----
+        GroundingVerifier.Attribution attribution = verifier.attributeUncited(answer, textByLabel);
+        answer = GroundingVerifier.normalize(attribution.text());
+        if (attribution.added() > 0) {
+            trace.add(new TraceStep("ATTRIBUTE", attribution.added() + " sentence(s) the model left uncited were matched "
+                    + "to the source that contains them (>= 60% of key terms)", 0));
+        }
         GroundingReport grounding = verifier.verify(answer, textByLabel);
         trace.add(new TraceStep("VERIFY", grounding.supported() + "/" + grounding.claims()
                 + " claims supported by the source they cite", 0));
 
         Set<String> cited = GroundingVerifier.citedLabels(answer);
         List<Citation> marked = sources.stream().map(c -> c.withCited(cited.contains(c.label()))).toList();
-
-        // Keep a conflict if it names no labels (described in prose) or all its labels are real sources.
-        List<Conflict> conflicts = grade == null ? List.of() : grade.conflicts().stream()
-                .filter(c -> c.sources().stream().allMatch(textByLabel::containsKey))
-                .toList();
         if (!conflicts.isEmpty()) {
             trace.add(new TraceStep("CONFLICT", conflicts.size() + " conflict(s) between sources flagged for review", 0));
         }

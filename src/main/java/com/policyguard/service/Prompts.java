@@ -41,7 +41,8 @@ final class Prompts {
                 Answer the QUESTION using ONLY the numbered SOURCES. Never use outside knowledge.
 
                 Rules:
-                1. End every factual sentence with its citation(s), like [S1] or [S2][S4].
+                1. End EVERY factual sentence and EVERY bullet point with its citation(s), written with plain
+                   square brackets exactly like [S1] or [S2][S4]. Do not use any other citation style.
                 2. If the SOURCES do not contain the answer, reply with exactly: INSUFFICIENT_EVIDENCE
                 3. If sources conflict, state both positions with their citations and say that the
                    regulator's (RBI) rule prevails over an internal bank policy.
@@ -75,6 +76,17 @@ final class Prompts {
                     .append(chunks.get(i).body()).append("\n\n");
         }
         return sb.toString();
+    }
+
+    /** When the grader found contradictions, tell the generator explicitly so the answer states both sides. */
+    static String conflictNote(List<com.policyguard.dto.Conflict> conflicts) {
+        if (conflicts == null || conflicts.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder("\nNOTE FROM THE EVIDENCE GRADER - these sources CONFLICT:\n");
+        for (var c : conflicts) {
+            sb.append("- ").append(String.join(" vs ", c.sources())).append(": ").append(c.description()).append('\n');
+        }
+        return sb.append("State BOTH positions with their citations, and say that the regulator's (RBI) rule prevails ")
+                .append("over the internal bank policy, which should be reported to Compliance.\n").toString();
     }
 
     static String rewriteUser(String question, String previousQuery, String missing) {

@@ -59,6 +59,82 @@ public class GroundingVerifier {
         return labelsIn(answer);
     }
 
+    private static final Pattern MULTI_CITATION = Pattern.compile("\\[(S\\d+(?:\\s*[,;]\\s*S\\d+)+)]");
+
+    /**
+     * Models invent citation styles: 【S1】, 【S1†L3】, [S1, S3], (S1). Normalise them all to [S1][S3], and replace
+     * typographic spaces/hyphens (narrow no-break space, non-breaking hyphen) with plain ones so "10 days" matches.
+     */
+    public static String normalize(String text) {
+        String t = text.replace(' ', ' ').replace(' ', ' ').replace(' ', ' ')
+                .replace('‑', '-').replace('‐', '-');
+        t = t.replaceAll("[【［]\\s*(S\\d+)[^】］]*[】］]", "[$1]");
+        t = t.replaceAll("\\[\\s*(S\\d+)\\s*]", "[$1]");
+        Matcher m = MULTI_CITATION.matcher(t);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            StringBuilder rep = new StringBuilder();
+            for (String label : m.group(1).split("\\s*[,;]\\s*")) rep.append('[').append(label.trim()).append(']');
+            m.appendReplacement(sb, Matcher.quoteReplacement(rep.toString()));
+        }
+        m.appendTail(sb);
+        t = sb.toString().replaceAll("\\((S\\d+)\\)", "[$1]");
+        // Collapse repeats such as "[S1]. [S1]" or "[S1] [S1]" into one citation.
+        String previous;
+        do {
+            previous = t;
+            t = t.replaceAll("(\\[S\\d+])\\s*([.!?]?)\\s*\\1", "$1$2");
+        } while (!t.equals(previous));
+        return t;
+    }
+
+    public record Attribution(String text, int added) {}
+
+    /**
+     * For factual sentences the model left without a citation, attach the source that clearly contains them
+     * (at least 60% of the sentence's key terms). Reported in the trace, never silent.
+     */
+    public Attribution attributeUncited(String answer, Map<String, String> sourceTextByLabel) {
+        Map<String, Set<String>> sourceWords = new LinkedHashMap<>();
+        sourceTextByLabel.forEach((label, text) -> sourceWords.put(label, TextUtils.stemmedSet(text)));
+        int added = 0;
+        String[] lines = answer.split("\\r?\\n", -1);
+        StringBuilder out = new StringBuilder();
+        for (int li = 0; li < lines.length; li++) {
+            List<String> rebuilt = new ArrayList<>();
+            for (String s : lines[li].split("(?<=[.!?])\\s+(?=[A-Z(\\[])")) {
+                String body = s.replaceFirst("^\\s*([-*•]|\\d+[.)])\\s*", "");
+                Set<String> words = TextUtils.stemmedSet(body);
+                if (CITATION.matcher(s).find() || words.size() < 3) {
+                    rebuilt.add(s);
+                    continue;
+                }
+                String bestLabel = null;
+                double best = 0;
+                for (Map.Entry<String, Set<String>> e : sourceWords.entrySet()) {
+                    double overlap = (double) words.stream().filter(e.getValue()::contains).count() / words.size();
+                    if (overlap > best) {
+                        best = overlap;
+                        bestLabel = e.getKey();
+                    }
+                }
+                if (bestLabel != null && best >= 0.6) {
+                    String trimmed = s.stripTrailing();
+                    char last = trimmed.isEmpty() ? ' ' : trimmed.charAt(trimmed.length() - 1);
+                    rebuilt.add(".!?".indexOf(last) >= 0
+                            ? trimmed.substring(0, trimmed.length() - 1) + " [" + bestLabel + "]" + last
+                            : trimmed + " [" + bestLabel + "]");
+                    added++;
+                } else {
+                    rebuilt.add(s);
+                }
+            }
+            out.append(String.join(" ", rebuilt));
+            if (li < lines.length - 1) out.append('\n');
+        }
+        return new Attribution(out.toString(), added);
+    }
+
     private static Set<String> labelsIn(String text) {
         Set<String> labels = new LinkedHashSet<>();
         Matcher m = CITATION.matcher(text);

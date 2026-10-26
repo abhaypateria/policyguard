@@ -22,9 +22,9 @@ class LlmGatewayLocalTest {
     void failsOverToOllamaAndGradesEvidence() {
         Assumptions.assumeTrue(ollamaUp(), "Ollama not running - skipping");
         PolicyGuardProperties.Provider dead = new PolicyGuardProperties.Provider(
-                "dead", "http://localhost:9", "x", "none", "/v1/chat/completions", true);
+                "dead", "http://localhost:9", "x", "none", "/v1/chat/completions", true, null, false);
         PolicyGuardProperties.Provider ollama = new PolicyGuardProperties.Provider(
-                "ollama", "http://localhost:11434", "ollama", "qwen2.5:7b", "/v1/chat/completions", true);
+                "ollama", "http://localhost:11434", "ollama", "qwen2.5:7b", "/v1/chat/completions", true, null, false);
         LlmGateway gateway = new LlmGateway(new PolicyGuardProperties(null, null, null,
                 new PolicyGuardProperties.Llm(List.of(dead, ollama), 2, 120), null, null, null, null));
 

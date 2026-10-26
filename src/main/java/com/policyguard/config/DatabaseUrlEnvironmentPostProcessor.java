@@ -40,6 +40,9 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
             }
         }
         if (params.isEmpty()) params.add("sslmode=require");
+        // Serverless Postgres can take a few seconds to wake up; the driver's 10 s default is too tight.
+        params.add("connectTimeout=30");
+        params.add("tcpKeepAlive=true");
 
         String jdbc = "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getRawPath() + "?" + String.join("&", params);
         env.getPropertySources().addFirst(new MapPropertySource("policyguardDatabaseUrl", Map.of(
