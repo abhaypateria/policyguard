@@ -1,151 +1,107 @@
 # PolicyGuard 🛡️
 
-**An AI compliance assistant for banks** that answers questions **only** from the
-organization's own policy documents — always citing the exact source file, page, and
-document version, **refusing to answer when the evidence is weak**, and logging every
-answer for audit.
+**A compliance assistant for bank employees that answers only from the bank's own policy documents —
+and proves it.** Every answer cites the exact file, page and version; weak evidence gets an explicit
+*"not found"* instead of a guess; contradictions between internal policy and RBI rules are flagged;
+and every exchange is sealed into a tamper-evident audit log.
 
 ![Java](https://img.shields.io/badge/Java-21-orange)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.13-brightgreen)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-brightgreen)
+![Spring AI](https://img.shields.io/badge/Spring%20AI-1.0-6DB33F)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-blue)
-![Spring AI](https://img.shields.io/badge/Spring%20AI-RAG-purple)
-![Status](https://img.shields.io/badge/status-in%20development-yellow)
-
-> Built to deeply understand **Retrieval-Augmented Generation (RAG)**, grounded LLM
-> answering, and the production concerns a regulated bank actually requires —
-> auditability, document versioning, and measured evaluation.
+![React](https://img.shields.io/badge/React-Vite-61DAFB)
 
 ---
 
 ## The problem
 
-Banks run on thousands of pages of internal policies + government regulations that
-change often. A branch employee needs a correct answer in seconds — *"what documents
-are needed to open an NRI account?"* — but today they either dig through a 500-page PDF
-for 40 minutes or wait days for the compliance team. Getting it wrong means regulatory
-fines and lawsuits.
+Banks run on thousands of pages of internal SOPs and regulator directions that change constantly — the
+RBI's KYC Master Direction alone lists more than 16 updates since 2016. Frontline staff need correct
+answers in seconds, and a wrong one is a regulatory penalty. A public chatbot can't be used: the
+documents are confidential, it invents fluent answers, it cites nothing, it keeps no record, and it has
+no idea which version of a rule applied on a given date.
 
-They **can't just use a public chatbot** because:
+## What PolicyGuard does differently
 
-| Risk | Why it matters |
-|------|----------------|
-| 🔒 **Confidentiality** | Policies aren't public; uploading them to ChatGPT leaks data |
-| 🤖 **Hallucination** | A made-up compliance answer becomes a regulatory fine |
-| 📜 **No audit trail** | Regulators demand proof of *which* rule, *which* page, *which* version, on *what* date |
-| 🗓️ **No version awareness** | Rules change; you often need the rule as it was on a past date |
-
-**PolicyGuard** answers only from an approved corpus (public RBI master circulars are
-used as the demo corpus), cites its sources, refuses when unsure, and keeps a full audit log.
-
----
-
-## What makes this more than a generic doc chatbot
-
-Most tutorial RAG apps just do *upload → ask → answer*. PolicyGuard adds the three
-things that make it a **compliance** tool a bank would actually consider:
-
-1. **🔄 Self-correction / refusal loop** — the system grades its own retrieval, rewrites
-   weak queries and retries, and says *"Not found in the policy documents"* instead of
-   guessing.
-2. **📋 Audit log + version awareness** — every answer is logged (question, sources,
-   confidence, user, timestamp, document version); queries can be filtered by version /
-   effective date.
-3. **📊 Evaluation harness** — measured before/after accuracy (plain RAG vs.
-   self-correcting RAG). See [docs/EVALUATION.md](docs/EVALUATION.md).
-
----
+| Capability | How it works |
+|---|---|
+| **Grounded answers with citations** | Retrieval-Augmented Generation over the bank's documents; every sentence cites `[S1]`, `[S2]`… which open the PDF at the exact page |
+| **Self-correcting retrieval** | An LLM grader checks the evidence *before* answering; weak evidence triggers a rewritten query and a retry; still weak → explicit refusal |
+| **Calibrated abstention** | The refusal threshold is chosen from an evaluation sweep (correct vs false refusals), not guessed |
+| **Temporal grounding** | Each policy version has an in-force window; ask *"as of 1 Oct 2023"* and only versions valid then are searched; superseded rules are flagged |
+| **Conflict detection** | When an internal SOP contradicts an RBI rule, both are shown and the regulator rule is marked as prevailing |
+| **Claim verification** | Each answer sentence is checked against the passage it cites; feeds an explainable confidence score |
+| **Tamper-evident audit log** | Records are SHA-256 hash-chained; editing or deleting any past record is detected by `GET /api/audit/verify` |
+| **No single point of failure** | LLM failover chain Groq → Gemini → local Ollama; embeddings run inside the JVM (no API, no quota) |
+| **Measured, not claimed** | Evaluation harness compares plain RAG with PolicyGuard on the same LLM — see [EVALUATION.md](docs/EVALUATION.md) |
 
 ## Architecture
 
 ```
-┌─────────────────────┐   HTTP / JSON   ┌──────────────────────────────┐
-│  React (JavaScript) │ ───────────────▶│      Spring Boot Backend     │
-│         UI          │                 │  Controller → Service → Repo │
-└─────────────────────┘                 └───────────────┬──────────────┘
-                                                         │
-                                   ┌─────────────────────┼──────────────────────┐
-                                   ▼                                            ▼
-                     ┌──────────────────────────┐               ┌──────────────────────────┐
-                     │  PostgreSQL + pgvector   │               │   LLM API (OpenAI/Gemini)│
-                     │  (documents + vectors +  │               │   embeddings + answers   │
-                     │   audit log)             │               └──────────────────────────┘
-                     └──────────────────────────┘
+React (Vite) ──HTTP/JSON──▶ Spring Boot  (Controller → Service → Repository)
+                                │
+         ┌──────────────────────┼─────────────────────────────┐
+         ▼                      ▼                             ▼
+ PostgreSQL + pgvector   Embeddings: all-MiniLM-L6-v2   LLM failover chain
+ (documents, vectors,    (local ONNX, 384-d)            Groq → Gemini → Ollama
+  full-text index,
+  hash-chained audit)
 ```
 
-**Ingestion (once per document):** Upload PDF → extract text → split into chunks →
-embed each chunk → store vector + metadata (page, version, effective dates) in pgvector.
+**Ingestion:** upload PDF → page-aware parsing → ~200-token chunks tagged with document, version, page →
+local embeddings → pgvector (HNSW) + full-text (GIN) indexes. Runs asynchronously.
 
-**Answering (every question):** Question → embed → similarity search (top-K) →
-**self-correction loop** grades retrieval and retries/refuses → grounded prompt → LLM
-answer + citations + confidence → **audit log**.
+**Answering:**
+`SCOPE` (versions in force on the date) → `RETRIEVE` (hybrid vector + keyword, Reciprocal Rank Fusion) →
+`GATE` (similarity threshold) → `GRADE` (relevant? sufficient? conflicts?) → `REWRITE & RETRY` →
+`REFUSE` *or* `GENERATE` (cited) → `VERIFY` (per-sentence) → `AUDIT` (hash-chained).
 
----
+## Demo corpus
 
-## Tech stack
+- **RBI Master Direction – Know Your Customer (KYC) Direction, 2016** (updated as on 14 Aug 2025) — public
+- **RBI FAQs on the KYC Master Direction** (June 2025) — public
+- **Demo Bank Ltd. internal KYC SOP, versions 2023 and 2024** — **fictional**, generated by
+  [`tools/make_demo_sop.py`](tools/make_demo_sop.py) to demonstrate versioning and to contain deliberate
+  conflicts with RBI rules (real internal bank policies are confidential)
 
-| Layer | Technology |
-|-------|------------|
-| Language | Java 21 |
-| Backend | Spring Boot 3.4.13 (Web, Data JPA, Validation) |
-| AI / RAG | Spring AI (embeddings, ChatClient, VectorStore) |
-| Database | PostgreSQL 16 + pgvector extension |
-| LLM | OpenAI / Gemini |
-| Frontend | React (JavaScript) |
-| Infra | Docker Compose · Maven wrapper |
+## Run it locally
 
----
-
-## Quick start
-
-**Prerequisites:** Java 21, Docker Desktop, (Node 18+ for the frontend later).
-
-> ⚠️ **Order matters.** The backend connects to Postgres at startup, so the database
-> must be running **first**: Docker Desktop → Postgres → Spring Boot.
+Prerequisites: Java 21, Node 18+, a free [Neon](https://neon.tech) Postgres database, and at least one LLM
+(free Groq / Gemini key, or [Ollama](https://ollama.com) running locally).
 
 ```bash
-# 1. Start Docker Desktop manually and wait for "Engine running"
-
-# 2. Start PostgreSQL (pgvector) in the background
-docker compose up -d
-
-# 3. Confirm the DB is healthy
-docker compose ps
-
-# 4. Start the backend (Windows — uses the Maven wrapper, no global Maven needed)
-.\mvnw.cmd spring-boot:run
+cp .env.example .env          # then fill in DATABASE_URL and an LLM key
+./mvnw spring-boot:run        # Windows: .\mvnw.cmd spring-boot:run   -> http://localhost:8081
+cd frontend && npm install && npm run dev                            # -> http://localhost:5173
 ```
 
-Then check it's alive:
+Flyway creates the schema and the demo corpus is indexed automatically on first start.
+API docs: `http://localhost:8081/swagger-ui.html`. Tests: `./mvnw test`.
 
-```bash
-curl http://localhost:8081/health
-# -> PolicyGuard is running
-```
+Deployment (Hugging Face Spaces + Vercel, all free tiers): see [docs/DEPLOY.md](docs/DEPLOY.md).
 
-Stop with `Ctrl+C`, then `docker compose down`.
+## API
 
----
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/chat` | Ask a question (`question`, optional `asOfDate`, `mode`) |
+| `POST` | `/api/chat/compare` | Same question: PolicyGuard vs an ungrounded LLM |
+| `POST` | `/api/documents` | Upload a policy version (multipart) |
+| `GET` | `/api/documents` | List documents with version windows and status |
+| `GET` | `/api/documents/{id}/file` | Original PDF (citations deep-link to `#page=N`) |
+| `GET` | `/api/audit` · `/api/audit/verify` · `/api/audit/head` | Audit trail, chain verification, head anchor |
+| `POST` | `/api/eval/run` · `GET /api/eval/latest` | Run / read the evaluation |
+| `GET` | `/api/status` | System status (documents, chunks, LLM providers) |
 
-## Project structure
+## Documentation
 
-```
-policyguard/
-├─ pom.xml                        # Maven build config (Java 21, Spring Boot 3.4.13)
-├─ docker-compose.yml             # PostgreSQL + pgvector (host port 5433)
-├─ mvnw / mvnw.cmd / .mvn/        # Maven wrapper
-├─ src/main/java/com/policyguard/
-│  ├─ PolicyGuardApplication.java # entry point
-│  ├─ controller/                 # HTTP layer  (Service / Repository / entity / dto come next)
-│  └─ ...
-├─ src/main/resources/
-│  └─ application.properties      # DB + JPA config
-└─ docs/                          # build logs, system design, talking points, evaluation
-```
+- [System design](docs/SYSTEM_DESIGN.md) — every design decision explained
+- [Evaluation](docs/EVALUATION.md) — plain RAG vs PolicyGuard, with numbers
+- [Deployment](docs/DEPLOY.md)
 
----
+## Limitations
 
-## Status
-
-🚧 In active development. The foundation is in place — containerized PostgreSQL +
-pgvector, a Spring Boot service, and a health endpoint. Document ingestion, vector
-retrieval, and grounded answering with citations are being built next.
+The gold evaluation set is small (44 questions) and correctness is checked automatically with expected
+keywords and sources, so results are directional. Two internal documents are fictional. Authentication is
+simulated, and scanned (image-only) PDFs are not supported yet. The hash chain proves a record was not
+altered — not that the answer was right; that is what citations, refusal and evaluation are for.
